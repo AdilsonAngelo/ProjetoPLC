@@ -2,12 +2,11 @@ module Sokoban (modificarMapa,
                 terminou,
                 carregarNivel,
                 Mapa,
-                Input(..)) where
+                Input(..),
+                nivel) where
 
 import Prelude hiding (Either(..))
 import Data.List (sort, delete)
-import Control.Monad (forM_)
-import System.IO (stdin, stdout, hSetEcho, hSetBuffering, BufferMode(..))
 
 type Coord = (Int, Int)
 
@@ -20,7 +19,7 @@ data Mapa = Mapa {
         fim,
         player :: Coord,
         passos :: Int
-    } deriving (Show)
+    }
 
 mapaVazio :: Mapa
 mapaVazio = Mapa {
@@ -65,16 +64,6 @@ carregarNivel str = foldl consume (mapaVazio{fim = (maxX, maxY)}) elems
                 ' ' -> m
                 otherwise -> error (show e ++ ": char não reconhecido")
 
-getInput :: IO Input
-getInput = do
-    char <- getChar
-    case char of
-        'w' -> return Up
-        'a' -> return Left
-        's' -> return Down
-        'd' -> return Right
-        otherwise -> getInput
-
 ehParede :: Mapa -> Coord -> Bool
 ehParede mapa coord = elem coord (paredes mapa)
 
@@ -83,9 +72,6 @@ ehCaixa mapa coord = elem coord (caixas mapa)
 
 ehEndpoint :: Mapa -> Coord -> Bool
 ehEndpoint mapa coord = elem coord (endpoints mapa)
-
-ehPlayer :: Mapa -> Coord -> Bool
-ehPlayer mapa coord = player mapa == coord
 
 ehValido :: Mapa -> Input -> Bool
 ehValido mapa input
@@ -97,10 +83,14 @@ ehValido mapa input
         novaPos = somaCoord pos input
         novaPos' = somaCoord novaPos input
 
-modificarMapa :: Mapa -> Input -> Mapa
+modificarMapa :: Mapa -> Input -> Maybe Mapa
 modificarMapa mapa input
-    | ehCaixa mapa novaPos = moverCaixa novoMapa novaPos novaPos'
-    | otherwise = novoMapa
+    | ehParede mapa novaPos = Nothing
+    | ehCaixa mapa novaPos =
+        if ehParede mapa novaPos' || ehCaixa mapa novaPos'
+        then Nothing
+        else return $ moverCaixa novoMapa novaPos novaPos'
+    | otherwise = return novoMapa
     where
         pos = player mapa
         novaPos = somaCoord pos input
@@ -108,9 +98,11 @@ modificarMapa mapa input
         novoMapa = mapa{player = novaPos, passos = passos mapa + 1}
         moverCaixa m p p' = m{caixas = p' : delete p (caixas m)}
 
-mostrarMapa :: Mapa -> IO ()
-mostrarMapa mapa = putStrLn . unlines . map (map aux) $ coords
-    where
+instance Show Mapa where
+    show mapa = unlines coords where
+        ehPlayer mapa coord = player mapa == coord
+        (maxX, maxY) = fim mapa
+        coords = [[aux (x, y) | x <- [0..maxX]] | y <- [0..maxY]]
         aux c 
             | ehCaixa mapa c && ehEndpoint mapa c = '*'
             | ehPlayer mapa c && ehEndpoint mapa c = '+'
@@ -119,26 +111,6 @@ mostrarMapa mapa = putStrLn . unlines . map (map aux) $ coords
             | ehCaixa mapa c = 'o'
             | ehEndpoint mapa c = '.'
             | otherwise = ' '
-        (maxX, maxY) = fim mapa
-        coords = [[(x, y) | x <- [0..maxX]] | y <- [0..maxY]]
 
 terminou :: Mapa -> Bool
 terminou mapa = sort (caixas mapa) == sort (endpoints mapa)
-
-main :: IO()
-main = do
-    hSetEcho stdin False
-    hSetBuffering stdin NoBuffering
-    hSetBuffering stdout NoBuffering
-
-    sokobanLoop $ carregarNivel nivel
-
-sokobanLoop mapa = do
-    mostrarMapa mapa
-    input <- getInput
-    let novoMapa =  if ehValido mapa input
-                    then modificarMapa mapa input
-                    else mapa
-    if terminou novoMapa
-        then mostrarMapa novoMapa >> print "terminou"
-        else sokobanLoop novoMapa
