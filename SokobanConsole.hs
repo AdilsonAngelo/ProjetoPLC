@@ -4,6 +4,11 @@ import Sokoban
 import Prelude hiding (Either(..))
 import System.IO (stdin, stdout, hSetEcho, hSetBuffering, BufferMode(..))
 
+-- import Control.Monad
+-- import Control.Monad.Fix
+-- import Graphics.UI.SDL as SDL
+-- import Graphics.UI.SDL.Mixer as Mix
+
 getInput :: IO Input
 getInput = do
     char <- getChar
@@ -40,4 +45,4 @@ main = do
     hSetEcho stdin False
     hSetBuffering stdin NoBuffering
     hSetBuffering stdout NoBuffering
-    iterarNiveis niveis
+    iterarNiveis niveisPack

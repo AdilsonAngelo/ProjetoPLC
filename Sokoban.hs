@@ -2,17 +2,23 @@ module Sokoban (modificarMapa,
                 terminou,
                 carregarNivel,
                 Mapa,
+                mapaVazio,
+                ehCaixa,
+                ehEndpoint,
+                ehParede,
+                ehPlayer,
                 Input(..),
-                niveis) where
+                fimMapa,
+                niveisPack) where
 
 import Prelude hiding (Either(..))
 import Data.List (sort, delete)
 
 type Coord = (Int, Int)
 
-data Input = Up | Down | Left | Right | Reset | Quit deriving (Show, Eq, Ord)
+data Input = Up | Down | Left | Right | Reset | Quit deriving (Eq, Ord)
 
-data Mapa = Nil | Mapa {
+data Mapa = Mapa {
         paredes,
         caixas,
         endpoints :: [Coord],
@@ -32,6 +38,9 @@ mapaVazio = Mapa {
         passos = 0,
         nivel = []
     }
+
+fimMapa :: Mapa -> Coord
+fimMapa m = fim m
 
 somaCoord :: Coord -> Input -> Coord
 somaCoord (x, y) input
@@ -81,7 +90,7 @@ nivel3 = unlines [
     " ####"
     ]
 
-niveis = [nivel1, nivel2, nivel3]
+niveisPack = [nivel1, nivel2, nivel3]
 
 carregarNivel :: String -> Mapa
 carregarNivel str = foldl consume (mapaVazio{fim = (maxX, maxY), nivel = str}) elems
@@ -97,8 +106,12 @@ carregarNivel str = foldl consume (mapaVazio{fim = (maxX, maxY), nivel = str}) e
                 'o' -> m{caixas = c:caixas m}
                 '#' -> m{paredes = c:paredes m}
                 '.' -> m{endpoints = c:endpoints m}
+                '*' -> m{endpoints = c:endpoints m, caixas = c:caixas m}
                 ' ' -> m
                 otherwise -> error (show e ++ ": char não reconhecido")
+
+ehPlayer :: Mapa -> Coord -> Bool
+ehPlayer mapa coord = player mapa == coord
 
 ehParede :: Mapa -> Coord -> Bool
 ehParede mapa coord = elem coord (paredes mapa)
@@ -127,7 +140,6 @@ modificarMapa mapa input
 
 instance Show Mapa where
     show mapa = unlines coords where
-        ehPlayer mapa coord = player mapa == coord
         (maxX, maxY) = fim mapa
         coords = [[aux (x, y) | x <- [0..maxX]] | y <- [0..maxY]]
         aux c 
