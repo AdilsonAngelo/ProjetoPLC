@@ -4,7 +4,7 @@ import Sokoban
 import Prelude hiding (Either(..))
 import Graphics.Rendering.Cairo as Cairo
 import Graphics.UI.Gtk
-import Control.Concurrent.MVar as MVar
+import Control.Concurrent
 import Data.Map as M
 import Data.Maybe as Maybe
 import Control.Monad (when, liftM, forM_, forM)
@@ -29,12 +29,10 @@ estadoVazio = do
   return $ Estado { mapa = nvs!!0, niveis = nvs, atual = 0 }
 
 proximoNivel estado = do
-  e <- MVar.readMVar estado
+  e <- takeMVar estado
   if length (niveis e) <= (atual e) + 1
     then print "terminou"
-    else MVar.modifyMVar_ estado $ \_ -> 
-          return $ e{mapa = (niveis e)!!((atual e)+1), atual = (atual e) + 1}
-
+    else putMVar estado $ e{mapa = (niveis e)!!((atual e)+1), atual = (atual e) + 1}
 
 teclado window estado = do
   tryEvent $ do
@@ -50,30 +48,30 @@ teclado window estado = do
             "Right" -> do
                 checkInput Right
             "r" -> do
-              MVar.modifyMVar_ estado $ \e -> return e{mapa = (niveis e)!!(atual e)}
+              modifyMVar_ estado $ \e -> return e{mapa = (niveis e)!!(atual e)}
               widgetQueueDraw window
             "q" -> do
               mainQuit
   
   where checkInput i = liftIO $ do
-          atualizarMapa estado i
+          forkIO(atualizarMapa estado i)
           widgetQueueDraw window
 
 
-atualizarMapa :: MVar.MVar Estado -> Input -> IO ()
+atualizarMapa :: MVar Estado -> Input -> IO ()
 atualizarMapa estado input = do
-  e <- MVar.readMVar estado
+  e <- takeMVar estado
   let mp = mapa e
       novoMapa  = case modificarMapa mp input of
                   Nothing -> mp
                   Just x  -> x
-  MVar.modifyMVar_ estado (\e -> return e{mapa = novoMapa})
+  putMVar estado $ e{mapa = novoMapa}
   when (terminou novoMapa) $ proximoNivel estado
 
 
 draw window estado tiles = liftIO $ do
   cr <- widgetGetDrawWindow window
-  mp <- liftM mapa $ MVar.readMVar estado
+  mp <- liftM mapa $ readMVar estado
   let (offsetX, offsetY) = (100, 85)
   renderWithDrawable cr $ do
     Cairo.scale 0.4 0.4
@@ -114,7 +112,7 @@ main :: IO ()
 main = do
   initGUI
 
-  estado <- MVar.newMVar =<< estadoVazio
+  estado <- newMVar =<< estadoVazio
   tiles <- carregarTiles  ["batman2", "Wood Block", "Selector", "Stone Block"]
 
   window <- windowNew
