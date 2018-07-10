@@ -1,0 +1,2 @@
+cc-options: -I/usr/local/include/SDL -D_GNU_SOURCE=1 -D_REENTRANT
+ld-options: -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lSDL 
